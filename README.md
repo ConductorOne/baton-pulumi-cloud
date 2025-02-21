@@ -2,7 +2,7 @@
 
 # `baton-pulumi-cloud` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-pulumi-cloud.svg)](https://pkg.go.dev/github.com/conductorone/baton-pulumi-cloud) ![main ci](https://github.com/conductorone/baton-pulumi-cloud/actions/workflows/main.yaml/badge.svg)
 
-`baton-pulumi` is a connector for built using the [Baton SDK](https://github.com/conductorone/baton-sdk).
+`baton-pulumi-cloud` is a connector for Pulumi Cloud built using the [Baton SDK](https://github.com/conductorone/baton-sdk).
 
 Check out [Baton](https://github.com/conductorone/baton) to learn more the project in general.
 
@@ -11,15 +11,15 @@ Check out [Baton](https://github.com/conductorone/baton) to learn more the proje
 ## brew
 
 ```
-brew install conductorone/baton/baton conductorone/baton/baton-pulumi
-baton-pulumi
+brew install conductorone/baton/baton conductorone/baton/baton-pulumi-cloud
+baton-pulumi-cloud
 baton resources
 ```
 
 ## docker
 
 ```
-docker run --rm -v $(pwd):/out -e BATON_DOMAIN_URL=domain_url -e BATON_API_KEY=apiKey -e BATON_USERNAME=username ghcr.io/conductorone/baton-pulumi:latest -f "/out/sync.c1z"
+docker run --rm -v $(pwd):/out -e BATON_DOMAIN_URL=domain_url -e BATON_API_KEY=apiKey -e BATON_USERNAME=username ghcr.io/conductorone/baton-pulumi-cloud:latest -f "/out/sync.c1z"
 docker run --rm -v $(pwd):/out ghcr.io/conductorone/baton:latest -f "/out/sync.c1z" resources
 ```
 
@@ -27,16 +27,19 @@ docker run --rm -v $(pwd):/out ghcr.io/conductorone/baton:latest -f "/out/sync.c
 
 ```
 go install github.com/conductorone/baton/cmd/baton@main
-go install github.com/conductorone/baton-pulumi-cloud/cmd/baton-pulumi@main
+go install github.com/conductorone/baton-pulumi-cloud/cmd/baton-pulumi-cloud@main
 
-baton-pulumi
+baton-pulumi-cloud
 
 baton resources
 ```
 
 # Data Model
 
-`baton-pulumi` will pull down information about the following resources:
+`baton-pulumi-cloud` will pull down information about the following resources:
+
+- Organizations
+- Teams
 - Users
 
 # Contributing, Support and Issues
@@ -48,7 +51,7 @@ everyone. If you have questions, problems, or ideas: Please open a GitHub Issue!
 
 See [CONTRIBUTING.md](https://github.com/ConductorOne/baton/blob/main/CONTRIBUTING.md) for more details.
 
-# `baton-pulumi` Command Line Usage
+# `baton-pulumi-cloud` Command Line Usage
 
 ```
 baton-pulumi-cloud
