@@ -2,43 +2,64 @@ package connector
 
 import (
 	"context"
+	"fmt"
 	"io"
 
+	"github.com/conductorone/baton-pulumi-cloud/pkg/client"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 )
 
-type Connector struct{}
+// Connector implements the Pulumi connector
+type Connector struct {
+	client  *client.Client
+	orgName string
+}
 
-// ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
-func (d *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
+// ResourceSyncers returns a ResourceSyncer for each resource type that should be synced
+func (c *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
 	return []connectorbuilder.ResourceSyncer{
-		newUserBuilder(),
+		newOrgBuilder(c.client, c.orgName),
+		newUserBuilder(c.client, c.orgName),
+		newTeamBuilder(c.client, c.orgName),
 	}
 }
 
-// Asset takes an input AssetRef and attempts to fetch it using the connector's authenticated http client
-// It streams a response, always starting with a metadata object, following by chunked payloads for the asset.
-func (d *Connector) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.ReadCloser, error) {
+// Asset returns asset data for the connector
+func (c *Connector) Asset(ctx context.Context, asset *v2.AssetRef) (string, io.ReadCloser, error) {
 	return "", nil, nil
 }
 
-// Metadata returns metadata about the connector.
-func (d *Connector) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
+// Metadata returns metadata about the connector
+func (c *Connector) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
 	return &v2.ConnectorMetadata{
-		DisplayName: "My Baton Connector",
-		Description: "The template implementation of a baton connector",
+		DisplayName: "Pulumi Cloud",
 	}, nil
 }
 
-// Validate is called to ensure that the connector is properly configured. It should exercise any API credentials
-// to be sure that they are valid.
-func (d *Connector) Validate(ctx context.Context) (annotations.Annotations, error) {
+// Validate ensures the connector is properly configured
+func (c *Connector) Validate(ctx context.Context) (annotations.Annotations, error) {
+	// Test the connection by trying to list users
+	_, err := c.client.ListUsers(ctx, c.orgName, "")
+	if err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 
-// New returns a new instance of the connector.
-func New(ctx context.Context) (*Connector, error) {
-	return &Connector{}, nil
+// New returns a new instance of the connector
+func New(ctx context.Context, client *client.Client, orgName string) (*Connector, error) {
+	if client == nil {
+		return nil, fmt.Errorf("pulumi client not provided")
+	}
+
+	if orgName == "" {
+		return nil, fmt.Errorf("organization name not provided")
+	}
+
+	return &Connector{
+		client:  client,
+		orgName: orgName,
+	}, nil
 }

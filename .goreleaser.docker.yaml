@@ -24,7 +24,7 @@ dockers:
       - "--label=org.opencontainers.image.title=baton-pulumi"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source=https://github.com/conductorone/baton-pulumi"
+      - "--label=org.opencontainers.image.source=https://github.com/conductorone/baton-pulumi-cloud"
   - use: buildx
     goos: linux
     goarch: arm64
@@ -37,7 +37,7 @@ dockers:
       - "--label=org.opencontainers.image.title=baton-pulumi"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source=https://github.com/conductorone/baton-pulumi"
+      - "--label=org.opencontainers.image.source=https://github.com/conductorone/baton-pulumi-cloud"
 docker_manifests:
   - name_template: ghcr.io/conductorone/baton-pulumi:{{ .Version }}
     image_templates:

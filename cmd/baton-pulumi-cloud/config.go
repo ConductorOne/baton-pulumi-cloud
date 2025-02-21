@@ -6,10 +6,20 @@ import (
 )
 
 var (
-	// ConfigurationFields defines the external configuration required for the
-	// connector to run. Note: these fields can be marked as optional or
-	// required.
-	ConfigurationFields = []field.SchemaField{}
+	accessTokenField = field.StringField(
+		"access-token",
+		field.WithRequired(true),
+		field.WithDescription("The access token for the Pulumi Cloud organization"),
+	)
+	orgNameField = field.StringField(
+		"org-name",
+		field.WithRequired(true),
+		field.WithDescription("The name of the Pulumi Cloud organization"),
+	)
+	ConfigurationFields = []field.SchemaField{
+		accessTokenField,
+		orgNameField,
+	}
 
 	// FieldRelationships defines relationships between the fields listed in
 	// ConfigurationFields that can be automatically validated. For example, a
