@@ -1,6 +1,8 @@
 module github.com/conductorone/baton-pulumi-cloud
 
-go 1.23.4
+go 1.23.0
+
+toolchain go1.23.4
 
 require (
 	github.com/conductorone/baton-sdk v0.2.67
