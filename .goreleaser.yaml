@@ -1,21 +1,21 @@
 version: 2
-project_name: baton-pulumi
+project_name: baton-pulumi-cloud
 builds:
-  - binary: baton-pulumi
+  - binary: baton-pulumi-cloud
     env:
       - CGO_ENABLED=0
     id: linux
-    main: ./cmd/baton-pulumi
+    main: ./cmd/baton-pulumi-cloud
     goos:
       - linux
     goarch:
       - amd64
       - arm64
-  - binary: baton-pulumi
+  - binary: baton-pulumi-cloud
     env:
       - CGO_ENABLED=0
     id: macos-amd64
-    main: ./cmd/baton-pulumi
+    main: ./cmd/baton-pulumi-cloud
     goos:
       - darwin
     goarch:
@@ -23,12 +23,12 @@ builds:
     hooks:
       post:
         - gon .gon-amd64.json
-        - mv dist/baton-pulumi-darwin-amd64.signed.zip dist/macos-amd64_darwin_amd64_v1/baton-pulumi
-  - binary: baton-pulumi
+        - mv dist/baton-pulumi-cloud-darwin-amd64.signed.zip dist/macos-amd64_darwin_amd64_v1/baton-pulumi-cloud
+  - binary: baton-pulumi-cloud
     env:
       - CGO_ENABLED=0
     id: macos-arm64
-    main: ./cmd/baton-pulumi
+    main: ./cmd/baton-pulumi-cloud
     goos:
       - darwin
     goarch:
@@ -36,7 +36,7 @@ builds:
     hooks:
       post:
         - gon .gon-arm64.json
-        - mv dist/baton-pulumi-darwin-arm64.signed.zip dist/macos-arm64_darwin_arm64/baton-pulumi
+        - mv dist/baton-pulumi-cloud-darwin-arm64.signed.zip dist/macos-arm64_darwin_arm64-v8.0/baton-pulumi-cloud
 archives:
   - id: linux-archive
     builds:
@@ -72,9 +72,9 @@ brews:
     directory: Formula
     homepage: https://conductorone.com
     test: |
-      system "#{bin}/baton-pulumi -v"
+      system "#{bin}/baton-pulumi-cloud -v"
     install: |-
-      bin.install "baton-pulumi"
+      bin.install "baton-pulumi-cloud"
 changelog:
   filters:
     exclude:

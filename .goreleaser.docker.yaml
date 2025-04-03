@@ -1,11 +1,11 @@
 version: 2
-project_name: baton-pulumi
+project_name: baton-pulumi-cloud
 builds:
-  - binary: baton-pulumi
+  - binary: baton-pulumi-cloud
     env:
       - CGO_ENABLED=0
     id: linux
-    main: ./cmd/baton-pulumi
+    main: ./cmd/baton-pulumi-cloud
     goos:
       - linux
     goarch:
@@ -16,12 +16,12 @@ dockers:
     goos: linux
     goarch: amd64
     image_templates:
-      - "ghcr.io/conductorone/baton-pulumi:{{ .Version }}-amd64"
-      - "ghcr.io/conductorone/baton-pulumi:latest-amd64"
+      - "ghcr.io/conductorone/baton-pulumi-cloud:{{ .Version }}-amd64"
+      - "ghcr.io/conductorone/baton-pulumi-cloud:latest-amd64"
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title=baton-pulumi"
+      - "--label=org.opencontainers.image.title=baton-pulumi-cloud"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source=https://github.com/conductorone/baton-pulumi-cloud"
@@ -29,24 +29,24 @@ dockers:
     goos: linux
     goarch: arm64
     image_templates:
-      - "ghcr.io/conductorone/baton-pulumi:{{ .Version }}-arm64"
-      - "ghcr.io/conductorone/baton-pulumi:latest-arm64"
+      - "ghcr.io/conductorone/baton-pulumi-cloud:{{ .Version }}-arm64"
+      - "ghcr.io/conductorone/baton-pulumi-cloud:latest-arm64"
     build_flag_templates:
       - "--platform=linux/arm64/v8"
       - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title=baton-pulumi"
+      - "--label=org.opencontainers.image.title=baton-pulumi-cloud"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source=https://github.com/conductorone/baton-pulumi-cloud"
 docker_manifests:
-  - name_template: ghcr.io/conductorone/baton-pulumi:{{ .Version }}
+  - name_template: ghcr.io/conductorone/baton-pulumi-cloud:{{ .Version }}
     image_templates:
-      - ghcr.io/conductorone/baton-pulumi:{{ .Version }}-amd64
-      - ghcr.io/conductorone/baton-pulumi:{{ .Version }}-arm64
-  - name_template: ghcr.io/conductorone/baton-pulumi:latest
+      - ghcr.io/conductorone/baton-pulumi-cloud:{{ .Version }}-amd64
+      - ghcr.io/conductorone/baton-pulumi-cloud:{{ .Version }}-arm64
+  - name_template: ghcr.io/conductorone/baton-pulumi-cloud:latest
     image_templates:
-      - ghcr.io/conductorone/baton-pulumi:latest-amd64
-      - ghcr.io/conductorone/baton-pulumi:latest-arm64
+      - ghcr.io/conductorone/baton-pulumi-cloud:latest-amd64
+      - ghcr.io/conductorone/baton-pulumi-cloud:latest-arm64
 checksum:
   disable: true
 release:

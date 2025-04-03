@@ -1,6 +1,6 @@
 {
-  "source": ["./dist/macos-amd64_darwin_amd64_v1/baton-pulumi"],
-  "bundle_id": "com.conductorone.baton-pulumi",
+  "source": ["./dist/macos-amd64_darwin_amd64_v1/baton-pulumi-cloud"],
+  "bundle_id": "com.conductorone.baton-pulumi-cloud",
   "apple_id": {
     "username" : "justin.gallardo@conductorone.com"
   },
@@ -8,6 +8,6 @@
     "application_identity": "Developer ID Application: Justin Gallardo (858DKH55XL)"
   },
   "zip" :{
-    "output_path":  "./dist/baton-pulumi-darwin-amd64.signed.zip"
+    "output_path":  "./dist/baton-pulumi-cloud-darwin-amd64.signed.zip"
   }
 }

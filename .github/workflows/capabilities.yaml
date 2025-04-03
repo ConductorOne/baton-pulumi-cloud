@@ -21,9 +21,12 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Build
-        run: go build -o connector ./cmd/baton-pulumi
+        run: go build -o connector ./cmd/baton-pulumi-cloud
 
       - name: Run and save output
+        env:
+          BATON_ACCESS_TOKEN: example
+          BATON_ORG_NAME: example
         run: ./connector capabilities > baton_capabilities.json
 
       - name: Commit changes

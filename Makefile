@@ -3,14 +3,14 @@ GOARCH = $(shell go env GOARCH)
 BUILD_DIR = dist/${GOOS}_${GOARCH}
 
 ifeq ($(GOOS),windows)
-OUTPUT_PATH = ${BUILD_DIR}/baton-pulumi.exe
+OUTPUT_PATH = ${BUILD_DIR}/baton-pulumi-cloud.exe
 else
-OUTPUT_PATH = ${BUILD_DIR}/baton-pulumi
+OUTPUT_PATH = ${BUILD_DIR}/baton-pulumi-cloud
 endif
 
 .PHONY: build
 build:
-	go build -o ${OUTPUT_PATH} ./cmd/baton-pulumi
+	go build -o ${OUTPUT_PATH} ./cmd/baton-pulumi-cloud
 
 .PHONY: update-deps
 update-deps:
