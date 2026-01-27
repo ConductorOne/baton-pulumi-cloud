@@ -10,10 +10,8 @@ import (
 	"github.com/conductorone/baton-pulumi-cloud/pkg/connector"
 	"github.com/conductorone/baton-sdk/pkg/config"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
-	"github.com/conductorone/baton-sdk/pkg/connectorrunner"
 	"github.com/conductorone/baton-sdk/pkg/types"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +25,6 @@ func main() {
 		"baton-pulumi-cloud",
 		getConnector,
 		cfg.Config,
-		connectorrunner.WithDefaultCapabilitiesConnectorBuilder(&connector.Connector{}),
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -43,18 +40,19 @@ func main() {
 	}
 }
 
-func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, error) {
+func getConnector(ctx context.Context, pc *cfg.PulumiCloud) (types.ConnectorServer, error) {
 	l := ctxzap.Extract(ctx)
 
-	token := v.GetString(cfg.AccessTokenField.FieldName)
-	orgName := v.GetString(cfg.OrgNameField.FieldName)
+	if err := cfg.ValidateConfig(pc); err != nil {
+		return nil, err
+	}
 
-	c, err := client.NewClient(token)
+	c, err := client.NewClient(pc.AccessToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	cb, err := connector.New(ctx, c, orgName)
+	cb, err := connector.New(ctx, c, pc.OrgName)
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))
 		return nil, err
