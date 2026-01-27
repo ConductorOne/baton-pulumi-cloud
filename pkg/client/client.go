@@ -156,7 +156,7 @@ func (c *Client) ListTeams(ctx context.Context, orgName string) ([]Team, error) 
 	return response.Teams, nil
 }
 
-// GetTeam returns details about a specific team including its members
+// GetTeam returns details about a specific team including its members.
 func (c *Client) GetTeam(ctx context.Context, orgName, teamName string) (*Team, error) {
 	reqURL, err := c.buildURL(fmt.Sprintf("orgs/%s/teams/%s", orgName, teamName), nil)
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *Client) GetTeam(ctx context.Context, orgName, teamName string) (*Team, 
 	return &team, nil
 }
 
-// RemoveUser removes a user from the organization
+// RemoveUser removes a user from the organization.
 func (c *Client) RemoveUser(ctx context.Context, orgName, username string) error {
 	reqURL, err := c.buildURL(fmt.Sprintf("orgs/%s/members/%s", orgName, username), nil)
 	if err != nil {
@@ -199,7 +199,7 @@ func (c *Client) RemoveUser(ctx context.Context, orgName, username string) error
 	return nil
 }
 
-// UpdateUserRole changes a user's role in the organization
+// UpdateUserRole changes a user's role in the organization.
 func (c *Client) UpdateUserRole(ctx context.Context, orgName, username, role string) error {
 	reqURL, err := c.buildURL(fmt.Sprintf("orgs/%s/members/%s", orgName, username), nil)
 	if err != nil {
@@ -224,7 +224,7 @@ func (c *Client) UpdateUserRole(ctx context.Context, orgName, username, role str
 	return nil
 }
 
-// UpdateTeamMembership modifies a user's membership in a team
+// UpdateTeamMembership modifies a user's membership in a team.
 func (c *Client) UpdateTeamMembership(ctx context.Context, orgName, teamName, username, action string) error {
 	reqURL, err := c.buildURL(fmt.Sprintf("orgs/%s/teams/%s", orgName, teamName), nil)
 	if err != nil {
