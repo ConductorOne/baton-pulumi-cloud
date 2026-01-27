@@ -6,11 +6,11 @@ import (
 	"os"
 
 	"github.com/conductorone/baton-pulumi-cloud/pkg/client"
+	cfg "github.com/conductorone/baton-pulumi-cloud/pkg/config"
 	"github.com/conductorone/baton-pulumi-cloud/pkg/connector"
 	"github.com/conductorone/baton-sdk/pkg/config"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/connectorrunner"
-	"github.com/conductorone/baton-sdk/pkg/field"
 	"github.com/conductorone/baton-sdk/pkg/types"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/spf13/viper"
@@ -26,9 +26,7 @@ func main() {
 		ctx,
 		"baton-pulumi-cloud",
 		getConnector,
-		field.Configuration{
-			Fields: ConfigurationFields,
-		},
+		cfg.Config,
 		connectorrunner.WithDefaultCapabilitiesConnectorBuilder(&connector.Connector{}),
 	)
 	if err != nil {
@@ -45,11 +43,11 @@ func main() {
 	}
 }
 
-func getConnector(ctx context.Context, cfg *viper.Viper) (types.ConnectorServer, error) {
+func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, error) {
 	l := ctxzap.Extract(ctx)
 
-	token := cfg.GetString("access-token")
-	orgName := cfg.GetString("org-name")
+	token := v.GetString(cfg.AccessTokenField.FieldName)
+	orgName := v.GetString(cfg.OrgNameField.FieldName)
 
 	c, err := client.NewClient(token)
 	if err != nil {

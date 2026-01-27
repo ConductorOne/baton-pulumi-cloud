@@ -5,17 +5,14 @@ import (
 
 	"github.com/conductorone/baton-sdk/pkg/field"
 	"github.com/conductorone/baton-sdk/pkg/test"
+	cfg "github.com/conductorone/baton-pulumi-cloud/pkg/config"
 )
 
 func TestConfigs(t *testing.T) {
 	configurationSchema := field.NewConfiguration(
-		ConfigurationFields,
-		field.WithConstraints(FieldRelationships...),
+		cfg.ConfigurationFields,
+		field.WithConstraints(cfg.FieldRelationships...),
 	)
 
-	testCases := []test.TestCase{
-		// Add test cases here.
-	}
-
-	test.ExerciseTestCases(t, configurationSchema, ValidateConfig, testCases)
+	test.ExerciseTestCases(t, configurationSchema, ValidateConfig, []test.TestCase{})
 }
