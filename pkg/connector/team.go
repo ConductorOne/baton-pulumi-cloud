@@ -115,7 +115,7 @@ func (o *teamBuilder) Grants(ctx context.Context, resource *v2.Resource, _ *pagi
 	return rv, "", annotations, nil
 }
 
-// Grant implements the entitlement grant operation
+// Grant implements the entitlement grant operation.
 func (o *teamBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
 	if principal == nil || principal.Id == nil {
 		return nil, nil, fmt.Errorf("principal is nil or has nil id")
@@ -135,7 +135,7 @@ func (o *teamBuilder) Grant(ctx context.Context, principal *v2.Resource, entitle
 	return nil, nil, nil
 }
 
-// Revoke implements the entitlement revoke operation
+// Revoke implements the entitlement revoke operation.
 func (o *teamBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
 	if grant == nil || grant.Principal == nil || grant.Principal.Id == nil {
 		return nil, fmt.Errorf("grant is nil or has nil principal")

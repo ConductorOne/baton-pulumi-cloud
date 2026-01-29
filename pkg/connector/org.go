@@ -53,7 +53,7 @@ func (o *orgBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, 
 	return []*v2.Resource{resource}, "", nil, nil
 }
 
-// formatResourceID creates a structured resource ID
+// formatResourceID creates a structured resource ID.
 func formatResourceID(parts ...string) string {
 	return strings.Join(parts, ":")
 }
@@ -121,7 +121,7 @@ func (o *orgBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *
 	return rv, resp.ContinuationToken, annotations, nil
 }
 
-// Grant implements the entitlement grant operation
+// Grant implements the entitlement grant operation.
 func (o *orgBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
 	if principal == nil || principal.Id == nil {
 		return nil, nil, fmt.Errorf("principal is nil or has nil id")
@@ -153,7 +153,7 @@ func (o *orgBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlem
 	return nil, nil, o.client.UpdateUserRole(ctx, o.orgName, principal.Id.Resource, role)
 }
 
-// Revoke implements the entitlement revoke operation
+// Revoke implements the entitlement revoke operation.
 func (o *orgBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
 	if grant == nil {
 		return nil, fmt.Errorf("grant is nil")

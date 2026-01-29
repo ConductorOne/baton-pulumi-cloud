@@ -85,12 +85,12 @@ func (ub *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId
 	return resources, resp.ContinuationToken, nil, nil
 }
 
-// Entitlements returns an empty list since users don't have their own entitlements
+// Entitlements returns an empty list since users don't have their own entitlements.
 func (ub *userBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
 	return nil, "", nil, nil
 }
 
-// Grants returns an empty list since role grants are handled at the org level
+// Grants returns an empty list since role grants are handled at the org level.
 func (ub *userBuilder) Grants(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
 	return nil, "", nil, nil
 }
