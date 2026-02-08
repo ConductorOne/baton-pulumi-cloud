@@ -6,18 +6,28 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/field"
 )
 
-var Config = field.NewConfiguration([]field.SchemaField{
-	field.StringField(
+var (
+	AccessTokenField = field.StringField(
 		"access-token",
 		field.WithRequired(true),
 		field.WithDescription("The access token for the Pulumi Cloud organization"),
-	),
-	field.StringField(
+	)
+	OrgNameField = field.StringField(
 		"org-name",
 		field.WithRequired(true),
 		field.WithDescription("The name of the Pulumi Cloud organization"),
-	),
-})
+	)
+	BaseURLField = field.StringField(
+		"base-url",
+		field.WithDescription("Override the Pulumi Cloud API URL (for testing)"),
+	)
+
+	Config = field.NewConfiguration([]field.SchemaField{
+		AccessTokenField,
+		OrgNameField,
+		BaseURLField,
+	})
+)
 
 func ValidateConfig(c *PulumiCloud) error {
 	return nil

@@ -8,6 +8,9 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
 )
 
+// DefaultBaseURL is the default Pulumi Cloud API URL.
+const DefaultBaseURL = "https://api.pulumi.com"
+
 // Client represents a Pulumi API client.
 type Client struct {
 	baseHttpClient *uhttp.BaseHttpClient
@@ -16,8 +19,12 @@ type Client struct {
 }
 
 // NewClient creates a new Pulumi API client.
-func NewClient(token string) (*Client, error) {
-	baseURL, err := url.Parse("https://api.pulumi.com")
+// If baseURL is empty, DefaultBaseURL is used.
+func NewClient(token string, baseURL string) (*Client, error) {
+	if baseURL == "" {
+		baseURL = DefaultBaseURL
+	}
+	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse base URL: %w", err)
 	}
@@ -34,7 +41,7 @@ func NewClient(token string) (*Client, error) {
 
 	return &Client{
 		baseHttpClient: wrapper,
-		baseURL:        baseURL,
+		baseURL:        parsedURL,
 		token:          token,
 	}, nil
 }

@@ -49,7 +49,7 @@ func getConnector(ctx context.Context, pc *cfg.PulumiCloud) (types.ConnectorServ
 		return nil, err
 	}
 
-	c, err := client.NewClient(pc.AccessToken)
+	c, err := client.NewClient(pc.AccessToken, pc.BaseUrl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
