@@ -1,6 +1,6 @@
 ![Baton Logo](./baton-logo.png)
 
-# `baton-pulumi-cloud` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-pulumi-cloud.svg)](https://pkg.go.dev/github.com/conductorone/baton-pulumi-cloud) ![main ci](https://github.com/conductorone/baton-pulumi-cloud/actions/workflows/main.yaml/badge.svg)
+# `baton-pulumi-cloud` [![Go Reference](https://pkg.go.dev/badge/github.com/conductorone/baton-pulumi-cloud.svg)](https://pkg.go.dev/github.com/conductorone/baton-pulumi-cloud) ![verify](https://github.com/conductorone/baton-pulumi-cloud/actions/workflows/verify.yaml/badge.svg)
 
 `baton-pulumi-cloud` is a connector for Pulumi Cloud built using the [Baton SDK](https://github.com/conductorone/baton-sdk).
 
