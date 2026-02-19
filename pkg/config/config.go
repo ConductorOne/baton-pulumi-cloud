@@ -21,6 +21,7 @@ var (
 		"base-url",
 		field.WithDescription("Override the Pulumi Cloud API URL (for testing)"),
 		field.WithHidden(true),
+		field.WithExportTarget(field.ExportTargetCLIOnly),
 	)
 
 	Config = field.NewConfiguration([]field.SchemaField{
