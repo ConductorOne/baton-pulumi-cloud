@@ -6,6 +6,7 @@ import "reflect"
 type PulumiCloud struct {
 	AccessToken string `mapstructure:"access-token"`
 	OrgName string `mapstructure:"org-name"`
+	BaseUrl string `mapstructure:"base-url"`
 }
 
 func (c *PulumiCloud) findFieldByTag(tagValue string) (any, bool) {
