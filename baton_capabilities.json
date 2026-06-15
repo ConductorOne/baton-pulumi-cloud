@@ -1,51 +1,51 @@
 {
-  "@type": "type.googleapis.com/c1.connector.v2.ConnectorCapabilities",
-  "resourceTypeCapabilities": [
+  "@type":  "type.googleapis.com/c1.connector.v2.ConnectorCapabilities",
+  "resourceTypeCapabilities":  [
     {
-      "resourceType": {
-        "id": "organization",
-        "displayName": "Organization",
-        "description": "Pulumi organization"
+      "resourceType":  {
+        "id":  "organization",
+        "displayName":  "Organization",
+        "description":  "Pulumi organization"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "team",
-        "displayName": "Team",
-        "traits": [
+      "resourceType":  {
+        "id":  "team",
+        "displayName":  "Team",
+        "traits":  [
           "TRAIT_GROUP"
         ],
-        "description": "Pulumi team"
+        "description":  "Pulumi team"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC",
         "CAPABILITY_PROVISION"
       ],
-      "permissions": {}
+      "permissions":  {}
     },
     {
-      "resourceType": {
-        "id": "user",
-        "displayName": "User",
-        "traits": [
+      "resourceType":  {
+        "id":  "user",
+        "displayName":  "User",
+        "traits":  [
           "TRAIT_USER"
         ],
-        "description": "Pulumi user"
+        "description":  "Pulumi user"
       },
-      "capabilities": [
+      "capabilities":  [
         "CAPABILITY_SYNC"
       ],
-      "permissions": {}
+      "permissions":  {}
     }
   ],
-  "connectorCapabilities": [
+  "connectorCapabilities":  [
     "CAPABILITY_PROVISION",
     "CAPABILITY_SYNC"
   ],
-  "credentialDetails": {}
+  "credentialDetails":  {}
 }
