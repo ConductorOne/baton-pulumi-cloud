@@ -10,6 +10,7 @@ var (
 	AccessTokenField = field.StringField(
 		"access-token",
 		field.WithRequired(true),
+		field.WithIsSecret(true),
 		field.WithDescription("The access token for the Pulumi Cloud organization"),
 	)
 	OrgNameField = field.StringField(
