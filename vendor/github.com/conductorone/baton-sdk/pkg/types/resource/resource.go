@@ -14,6 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var ErrNoAlias = fmt.Errorf("no aliases found for resource")
+var ErrEmptyAlias = fmt.Errorf("alias cannot be empty")
+
 type ResourceOption func(*v2.Resource) error
 
 func WithAnnotation(msgs ...proto.Message) ResourceOption {
@@ -210,6 +213,91 @@ func WithSecretTrait(opts ...SecretTraitOption) ResourceOption {
 		}
 
 		annos.Update(rt)
+		r.SetAnnotations(annos)
+
+		return nil
+	}
+}
+
+// WithNHIType adds or updates a NonHumanIdentityTrait annotation on a
+// resource, marking it as a non-human identity. It is kind-agnostic and may
+// be combined with any resource trait (e.g. TRAIT_APP or TRAIT_ROLE).
+func WithNHIType(nhiType v2.NonHumanIdentityTrait_NhiType, detail string) ResourceOption {
+	return func(r *v2.Resource) error {
+		nhi := &v2.NonHumanIdentityTrait{}
+
+		annos := annotations.Annotations(r.GetAnnotations())
+		_, err := annos.Pick(nhi)
+		if err != nil {
+			return err
+		}
+
+		nhi.SetNhiType(nhiType)
+		nhi.SetNhiDetail(detail)
+
+		annos.Update(nhi)
+		r.SetAnnotations(annos)
+
+		return nil
+	}
+}
+
+// GetNonHumanIdentityTrait returns the NonHumanIdentityTrait from a resource's
+// annotations.
+func GetNonHumanIdentityTrait(resource *v2.Resource) (*v2.NonHumanIdentityTrait, error) {
+	ret := &v2.NonHumanIdentityTrait{}
+	annos := annotations.Annotations(resource.GetAnnotations())
+	ok, err := annos.Pick(ret)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("non-human identity trait was not found on resource")
+	}
+	return ret, nil
+}
+
+// WithAliases sets the aliases id for a resource.
+func WithAliases(aliases ...string) ResourceOption {
+	return func(r *v2.Resource) error {
+		if len(aliases) == 0 {
+			return ErrNoAlias
+		}
+
+		aliasV := &v2.Aliases{}
+
+		annos := annotations.Annotations(r.GetAnnotations())
+		_, err := annos.Pick(aliasV)
+		if err != nil {
+			return err
+		}
+
+		uniqueAlias := make(map[string]struct{}, len(aliasV.GetIds())+len(aliases))
+		for _, alias := range aliasV.GetIds() {
+			uniqueAlias[alias] = struct{}{}
+		}
+
+		for _, alias := range aliases {
+			if alias == "" {
+				return ErrEmptyAlias
+			}
+
+			uniqueAlias[alias] = struct{}{}
+		}
+
+		ids := make([]string, 0, len(uniqueAlias))
+		for alias := range uniqueAlias {
+			ids = append(ids, alias)
+		}
+
+		aliasV.Ids = ids
+
+		err = aliasV.Validate()
+		if err != nil {
+			return err
+		}
+
+		annos.Update(aliasV)
 		r.SetAnnotations(annos)
 
 		return nil

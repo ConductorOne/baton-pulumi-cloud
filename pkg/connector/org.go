@@ -29,7 +29,7 @@ type orgBuilder struct {
 }
 
 var _ connectorbuilder.ResourceSyncer = &orgBuilder{}
-var _ connectorbuilder.ResourceProvisionerV2 = &orgBuilder{}
+var _ connectorbuilder.ResourceProvisionerV2Limited = &orgBuilder{}
 
 func orgResource(orgName string) (*v2.Resource, error) {
 	return batonResource.NewResource(

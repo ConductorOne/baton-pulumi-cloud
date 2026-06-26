@@ -15,10 +15,14 @@ const (
 	OtelCollectorEndpointTLSInsecureFieldName = "otel-collector-endpoint-tls-insecure"
 	OtelTracingDisabledFieldName              = "otel-tracing-disabled"
 	OtelLoggingDisabledFieldName              = "otel-logging-disabled"
+
+	// TaskConcurrencySchemaDefault is the configured default for [TaskConcurrencyField].
+	TaskConcurrencySchemaDefault = 3
 )
 
 func defaultLogFormat() any {
 	// If stdout is a TTY, use console format, otherwise use JSON
+
 	if term.IsTerminal(int(os.Stdout.Fd())) {
 		return logging.LogFormatConsole
 	}
@@ -94,7 +98,13 @@ var (
 		WithDescription("The timestamp indicating when debug-level logging should expire"),
 		WithPersistent(true),
 		WithExportTarget(ExportTargetOps))
-	skipFullSync              = BoolField("skip-full-sync", WithDescription("This must be set to skip a full sync"), WithPersistent(true), WithExportTarget(ExportTargetNone))
+	skipFullSync     = BoolField("skip-full-sync", WithDescription("This must be set to skip a full sync"), WithPersistent(true), WithExportTarget(ExportTargetNone))
+	WorkerCountField = IntField("workers",
+		WithDescription("The number of sync workers to use. -1 for auto-detect, 0 for sequential, >0 for parallel"),
+		WithDefaultValue(0),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetNone))
+	ParallelSyncField         = BoolField("parallel-sync", WithDescription("Deprecated: use --workers instead."), WithPersistent(true), WithExportTarget(ExportTargetNone))
 	targetedSyncResourceIDs   = StringSliceField("sync-resources", WithDescription("The resource IDs to sync"), WithPersistent(true), WithExportTarget(ExportTargetNone))
 	skipEntitlementsAndGrants = BoolField("skip-entitlements-and-grants",
 		WithDescription("This must be set to skip syncing of entitlements and grants"),
@@ -253,6 +263,20 @@ var (
 		WithPersistent(true),
 		WithExportTarget(ExportTargetNone))
 
+	// KeepPreviousSyncC1ZField is the CUSTOMER's runtime half of the
+	// service-mode ETag-replay opt-in: keep the last successfully
+	// uploaded c1z on disk as a spare and feed it to the next full sync
+	// as the previous-sync replay source. It only takes effect on
+	// connectors whose author also declared ETag-replay support at build
+	// time (connectorrunner.WithKeepPreviousSyncC1Z) — both are
+	// required. Costs one c1z of local disk.
+	KeepPreviousSyncC1ZField = BoolField("keep-previous-sync-c1z",
+		WithDescription("Keep the previously synced c1z on disk to enable ETag replay across service-mode syncs "+
+			"(requires a connector that supports ETag replay; costs one c1z of local disk)"),
+		WithDefaultValue(false),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetNone))
+
 	LambdaServerClientIDField = StringField("lambda-client-id", WithRequired(true), WithDescription("The oauth client id to use with the configuration endpoint"),
 		WithExportTarget(ExportTargetNone))
 	LambdaServerClientSecretField = StringField("lambda-client-secret", WithRequired(true), WithDescription("The oauth client secret to use with the configuration endpoint"),
@@ -290,6 +314,58 @@ var (
 		WithExportTarget(ExportTargetOps),
 		WithHidden(true),
 		WithPersistent(true))
+
+	healthCheckField = BoolField("health-check",
+		WithDescription("Enable the HTTP health check endpoint"),
+		WithDefaultValue(false),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetOps))
+
+	healthCheckPortField = IntField("health-check-port",
+		WithDescription("Port for the HTTP health check endpoint"),
+		WithDefaultValue(8081),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetOps))
+
+	healthCheckBindAddressField = StringField("health-check-bind-address",
+		WithDescription("Bind address for health check server (127.0.0.1 for localhost-only)"),
+		WithDefaultValue("127.0.0.1"),
+		WithPersistent(true),
+		WithHidden(true),
+		WithExportTarget(ExportTargetOps))
+
+	HttpTimeoutField = IntField("http-timeout-seconds",
+		WithDescription("HTTP client timeout in seconds (max 1800)"),
+		WithDefaultValue(300),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetOps),
+		WithInt(func(r *IntRuler) {
+			r.Gte(1).Lte(1800)
+		}))
+
+	// StorageEngineField selects the dotc1z storage engine for sync tasks.
+	// Empty uses the baton-sdk default (sqlite for new files).
+	StorageEngineField = StringField("storage-engine",
+		WithDescription("The storage engine to use when opening the sync c1z file: sqlite or pebble. "+
+			"Leave unset to use the baton-sdk default."),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetNone),
+		WithString(func(r *StringRuler) {
+			r.In([]string{"", "sqlite", "pebble"})
+		}))
+
+	// TaskConcurrencyField limits concurrent Baton task execution in the runner
+	// (service mode). Semantics match [WorkerCountField] / sync worker parallelism.
+	TaskConcurrencyField = IntField("task-concurrency",
+		WithDescription("The number of Baton tasks to run concurrently in service mode. "+
+			"Tasks may include sync, grant, revoke, and more. "+
+			"Minimum value is 1, maximum value is 100."),
+		WithDefaultValue(TaskConcurrencySchemaDefault),
+		WithInt(func(r *IntRuler) {
+			r.Gte(1).Lte(100)
+		}),
+		WithPersistent(true),
+		WithExportTarget(ExportTargetNone))
 )
 
 func LambdaServerFields() []SchemaField {
@@ -347,6 +423,7 @@ var DefaultFields = []SchemaField{
 	skipGrants,
 	externalResourceC1ZField,
 	externalResourceEntitlementIdFilter,
+	KeepPreviousSyncC1ZField,
 	diffSyncsField,
 	diffSyncsBaseSyncField,
 	diffSyncsAppliedSyncField,
@@ -364,6 +441,8 @@ var DefaultFields = []SchemaField{
 	invokeResourceActionTypeField,
 	invokeResourceActionArgsField,
 	ServerSessionStoreMaximumSizeField,
+	WorkerCountField,
+	ParallelSyncField,
 
 	otelCollectorEndpoint,
 	otelCollectorEndpointTLSCertPath,
@@ -373,6 +452,14 @@ var DefaultFields = []SchemaField{
 	otelLoggingDisabled,
 
 	authMethod,
+
+	healthCheckField,
+	healthCheckPortField,
+	healthCheckBindAddressField,
+
+	HttpTimeoutField,
+	StorageEngineField,
+	TaskConcurrencyField,
 }
 
 func IsFieldAmongDefaultList(f SchemaField) bool {
