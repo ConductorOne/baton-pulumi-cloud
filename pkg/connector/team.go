@@ -21,7 +21,7 @@ type teamBuilder struct {
 }
 
 var _ connectorbuilder.ResourceSyncer = &teamBuilder{}
-var _ connectorbuilder.ResourceProvisionerV2 = &teamBuilder{}
+var _ connectorbuilder.ResourceProvisionerV2Limited = &teamBuilder{}
 
 func teamResource(team client.Team, parentResourceId *v2.ResourceId) (*v2.Resource, error) {
 	profile := map[string]interface{}{

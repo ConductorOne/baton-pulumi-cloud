@@ -2,10 +2,12 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -29,10 +31,13 @@ import (
 	baton_v1 "github.com/conductorone/baton-sdk/pb/c1/connectorapi/baton/v1"
 	"github.com/conductorone/baton-sdk/pkg/connectorrunner"
 	"github.com/conductorone/baton-sdk/pkg/crypto"
+	"github.com/conductorone/baton-sdk/pkg/dotc1z"
 	"github.com/conductorone/baton-sdk/pkg/field"
 	"github.com/conductorone/baton-sdk/pkg/logging"
 	"github.com/conductorone/baton-sdk/pkg/session"
+	"github.com/conductorone/baton-sdk/pkg/tempdir"
 	"github.com/conductorone/baton-sdk/pkg/types/sessions"
+	"github.com/conductorone/baton-sdk/pkg/uhttp"
 	"github.com/conductorone/baton-sdk/pkg/uotel"
 	utls2 "github.com/conductorone/baton-sdk/pkg/utls"
 )
@@ -178,6 +183,17 @@ func MakeMainCommand[T field.Configurable](
 			)
 			if v.GetBool("skip-full-sync") {
 				opts = append(opts, connectorrunner.WithFullSyncDisabled())
+			}
+			if v.GetBool("health-check") {
+				opts = append(opts, connectorrunner.WithHealthCheck(
+					true,
+					v.GetInt("health-check-port"),
+					v.GetString("health-check-bind-address"),
+				))
+			}
+			if len(v.GetStringSlice("sync-resource-types")) > 0 {
+				opts = append(opts,
+					connectorrunner.WithSyncResourceTypeIDs(v.GetStringSlice("sync-resource-types")))
 			}
 		} else {
 			switch {
@@ -345,12 +361,21 @@ func MakeMainCommand[T field.Configurable](
 			}
 		}
 
-		if v.GetString("c1z-temp-dir") != "" {
-			c1zTmpDir := v.GetString("c1z-temp-dir")
+		if v.GetBool(field.ParallelSyncField.GetName()) {
+			opts = append(opts, connectorrunner.WithWorkerCount(-1))
+		}
+
+		workers := v.GetInt(field.WorkerCountField.GetName())
+		if workers != 0 {
+			opts = append(opts, connectorrunner.WithWorkerCount(workers))
+		}
+
+		c1zTmpDir := tempdir.Resolve(v.GetString("c1z-temp-dir"))
+		if c1zTmpDir != "" {
 			if _, err := os.Stat(c1zTmpDir); os.IsNotExist(err) {
 				return fmt.Errorf("the specified c1z temp dir does not exist: %s", c1zTmpDir)
 			}
-			opts = append(opts, connectorrunner.WithTempDir(v.GetString("c1z-temp-dir")))
+			opts = append(opts, connectorrunner.WithTempDir(c1zTmpDir))
 		}
 
 		if v.GetString("external-resource-c1z") != "" {
@@ -367,13 +392,52 @@ func MakeMainCommand[T field.Configurable](
 			opts = append(opts, connectorrunner.WithExternalResourceEntitlementFilter(externalResourceEntitlementIdFilter))
 		}
 
+		// The customer's runtime half of the ETag-replay opt-in
+		// (--keep-previous-sync-c1z / BATON_KEEP_PREVIOUS_SYNC_C1Z).
+		// Only takes effect on connectors whose author also declared the
+		// capability at build time via
+		// connectorrunner.WithKeepPreviousSyncC1Z(); both are required.
+		if v.GetBool(field.KeepPreviousSyncC1ZField.GetName()) {
+			opts = append(opts, connectorrunner.WithKeepPreviousSyncC1ZRuntimeOptIn())
+		}
+
 		opts = append(opts, connectorrunner.WithSkipEntitlementsAndGrants(v.GetBool("skip-entitlements-and-grants")))
 
 		if v.GetBool("skip-grants") {
 			opts = append(opts, connectorrunner.WithSkipGrants(v.GetBool("skip-grants")))
 		}
 
-		c, err := getconnector(runCtx, t, RunTimeOpts{})
+		httpTimeout := v.GetInt(field.HttpTimeoutField.GetName())
+		if httpTimeout <= 0 {
+			return fmt.Errorf("field %s: value must be greater than or equal to 1 but got %d", field.HttpTimeoutField.GetName(), httpTimeout)
+		}
+		httpTimeoutField := field.HttpTimeoutField
+		if _, err := field.ValidateField(&httpTimeoutField, httpTimeout); err != nil {
+			return err
+		}
+		runCtx = context.WithValue(runCtx, uhttp.ContextHTTPTimeoutKey, time.Duration(httpTimeout)*time.Second)
+
+		storageEngine := v.GetString(field.StorageEngineField.GetName())
+		storageEngineField := field.StorageEngineField
+		if _, err := field.ValidateField(&storageEngineField, storageEngine); err != nil {
+			return err
+		}
+		if storageEngine != "" {
+			opts = append(opts, connectorrunner.WithStorageEngine(dotc1z.Engine(storageEngine)))
+		}
+
+		taskConcurrency := v.GetInt(field.TaskConcurrencyField.GetName())
+		taskConcurrencyField := field.TaskConcurrencyField
+		if _, err := field.ValidateField(&taskConcurrencyField, taskConcurrency); err != nil {
+			return err
+		}
+		opts = append(opts, connectorrunner.WithTaskConcurrency(taskConcurrency))
+
+		// Save the selected authentication method and get the connector.
+		c, err := getconnector(runCtx, t, RunTimeOpts{
+			SelectedAuthMethod:  v.GetString("auth-method"),
+			SyncResourceTypeIDs: v.GetStringSlice("sync-resource-types"),
+		})
 		if err != nil {
 			return err
 		}
@@ -492,6 +556,9 @@ func MakeGRPCServerCommand[T field.Configurable](
 			cfgStr = scn.Text()
 			break
 		}
+		if scn.Err() != nil {
+			return fmt.Errorf("failed to read stdin: %w", scn.Err())
+		}
 
 		cfgBytes, err := base64.StdEncoding.DecodeString(cfgStr)
 		if err != nil {
@@ -532,6 +599,16 @@ func MakeGRPCServerCommand[T field.Configurable](
 			runCtx = context.WithValue(runCtx, crypto.ContextClientSecretKey, secretJwk)
 		}
 
+		httpTimeout := v.GetInt(field.HttpTimeoutField.GetName())
+		if httpTimeout <= 0 {
+			return fmt.Errorf("field %s: value must be greater than or equal to 1 but got %d", field.HttpTimeoutField.GetName(), httpTimeout)
+		}
+		httpTimeoutField := field.HttpTimeoutField
+		if _, err := field.ValidateField(&httpTimeoutField, httpTimeout); err != nil {
+			return err
+		}
+		runCtx = context.WithValue(runCtx, uhttp.ContextHTTPTimeoutKey, time.Duration(httpTimeout)*time.Second)
+
 		sessionStoreMaximumSize := v.GetInt(field.ServerSessionStoreMaximumSizeField.GetName())
 		sessionConstructor := getGRPCSessionStoreClient(runCtx, serverCfg)
 		c, err := getconnector(runCtx, t, RunTimeOpts{
@@ -542,6 +619,8 @@ func MakeGRPCServerCommand[T field.Configurable](
 					otterOptions.MaximumWeight = uint64(sessionStoreMaximumSize)
 				}
 			}),
+			SelectedAuthMethod:  v.GetString("auth-method"),
+			SyncResourceTypeIDs: v.GetStringSlice("sync-resource-types"),
 		})
 		if err != nil {
 			return err
@@ -631,26 +710,45 @@ func MakeCapabilitiesCommand[T field.Configurable](
 
 		var c types.ConnectorServer
 
-		c, err = defaultConnectorBuilder(ctx, opts...)
+		// A factory, when provided, supplies the connector for the capabilities command
+		// directly and takes precedence over the default builder and config-path connector.
+		factory, err := connectorrunner.ExtractDefaultCapabilitiesConnectorFactory(ctx, opts...)
 		if err != nil {
-			return fmt.Errorf("failed to build default connector: %w", err)
+			return fmt.Errorf("failed to extract default capabilities connector factory: %w", err)
 		}
 
-		if c == nil {
-			readFromPath := true
-			decodeOpts := field.WithAdditionalDecodeHooks(field.FileUploadDecodeHook(readFromPath))
-			t, err := MakeGenericConfiguration[T](v, decodeOpts)
+		if factory != nil {
+			c, err = factory(runCtx)
 			if err != nil {
-				return fmt.Errorf("failed to make configuration: %w", err)
+				return fmt.Errorf("failed to build default connector: %w", err)
 			}
-			// validate required fields and relationship constraints
-			if err := field.Validate(confschema, t, field.WithAuthMethod(v.GetString("auth-method"))); err != nil {
-				return err
+			defer closeIfPossible(runCtx, c)
+		} else {
+			c, err = defaultConnectorBuilder(ctx, opts...)
+			if err != nil {
+				return fmt.Errorf("failed to build default connector: %w", err)
 			}
 
-			c, err = getconnector(runCtx, t, RunTimeOpts{})
-			if err != nil {
-				return err
+			if c == nil {
+				readFromPath := true
+				decodeOpts := field.WithAdditionalDecodeHooks(field.FileUploadDecodeHook(readFromPath))
+				t, err := MakeGenericConfiguration[T](v, decodeOpts)
+				if err != nil {
+					return fmt.Errorf("failed to make configuration: %w", err)
+				}
+				authMethod := v.GetString("auth-method")
+				// validate required fields and relationship constraints
+				if err := field.Validate(confschema, t, field.WithAuthMethod(authMethod)); err != nil {
+					return err
+				}
+
+				c, err = getconnector(runCtx, t, RunTimeOpts{
+					SelectedAuthMethod:  authMethod,
+					SyncResourceTypeIDs: v.GetStringSlice("sync-resource-types"),
+				})
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -658,30 +756,9 @@ func MakeCapabilitiesCommand[T field.Configurable](
 			return fmt.Errorf("could not create connector %w", err)
 		}
 
-		type getter interface {
-			GetCapabilities(ctx context.Context) (*v2.ConnectorCapabilities, error)
-		}
-
-		var capabilities *v2.ConnectorCapabilities
-
-		if getCap, ok := c.(getter); ok {
-			capabilities, err = getCap.GetCapabilities(runCtx)
-			if err != nil {
-				return err
-			}
-		}
-
-		if capabilities == nil {
-			md, err := c.GetMetadata(runCtx, &v2.ConnectorServiceGetMetadataRequest{})
-			if err != nil {
-				return err
-			}
-
-			if !md.GetMetadata().HasCapabilities() {
-				return fmt.Errorf("connector does not support capabilities")
-			}
-
-			capabilities = md.GetMetadata().GetCapabilities()
+		capabilities, err := capabilitiesFromConnector(runCtx, c)
+		if err != nil {
+			return err
 		}
 
 		protoMarshaller := protojson.MarshalOptions{
@@ -700,7 +777,15 @@ func MakeCapabilitiesCommand[T field.Configurable](
 			return err
 		}
 
-		_, err = fmt.Fprint(os.Stdout, string(outBytes))
+		// Re-indent to normalize protojson's non-deterministic whitespace.
+		// protojson uses detrand.Bool() to randomly insert extra spaces after colons;
+		// json.Indent rewrites all whitespace from the token stream, preserving key order.
+		var normalized bytes.Buffer
+		if err := json.Indent(&normalized, outBytes, "", "  "); err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprint(os.Stdout, normalized.String())
 		if err != nil {
 			return err
 		}
@@ -727,6 +812,47 @@ func MakeConfigSchemaCommand[T field.Configurable](
 			return err
 		}
 		return nil
+	}
+}
+
+// capabilitiesFromConnector extracts a connector's capabilities, preferring the optional
+// GetCapabilities getter and falling back to GetMetadata().Capabilities otherwise.
+func capabilitiesFromConnector(ctx context.Context, c types.ConnectorServer) (*v2.ConnectorCapabilities, error) {
+	type getter interface {
+		GetCapabilities(ctx context.Context) (*v2.ConnectorCapabilities, error)
+	}
+
+	if getCap, ok := c.(getter); ok {
+		return getCap.GetCapabilities(ctx)
+	}
+
+	md, err := c.GetMetadata(ctx, &v2.ConnectorServiceGetMetadataRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	if !md.GetMetadata().HasCapabilities() {
+		return nil, fmt.Errorf("connector does not support capabilities")
+	}
+
+	return md.GetMetadata().GetCapabilities(), nil
+}
+
+// closeIfPossible closes the connector if it implements a Close method, logging any error.
+func closeIfPossible(ctx context.Context, c types.ConnectorServer) {
+	type closer interface {
+		Close(ctx context.Context) error
+	}
+
+	switch cl := c.(type) {
+	case closer:
+		if err := cl.Close(ctx); err != nil {
+			ctxzap.Extract(ctx).Error("failed to close connector", zap.Error(err))
+		}
+	case io.Closer:
+		if err := cl.Close(); err != nil {
+			ctxzap.Extract(ctx).Error("failed to close connector", zap.Error(err))
+		}
 	}
 }
 
