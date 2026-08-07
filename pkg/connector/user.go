@@ -32,8 +32,6 @@ func userResource(user *client.User, parentResourceId *v2.ResourceId) (*v2.Resou
 
 	userTraits := []batonResource.UserTraitOption{
 		batonResource.WithUserLogin(user.User.GithubLogin),
-		batonResource.WithUserProfile(profile),
-		batonResource.WithStatus(userStatus),
 		batonResource.WithAccountType(accountType),
 	}
 
@@ -47,6 +45,8 @@ func userResource(user *client.User, parentResourceId *v2.ResourceId) (*v2.Resou
 		userResourceType,
 		user.User.GithubLogin,
 		userTraits,
+		batonResource.WithResourceProfile(profile),
+		batonResource.WithResourceStatus(v2.Status_ResourceStatus(userStatus), ""),
 		batonResource.WithParentResourceID(parentResourceId),
 	)
 }
