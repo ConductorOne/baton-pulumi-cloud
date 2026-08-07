@@ -34,9 +34,8 @@ func teamResource(team client.Team, parentResourceId *v2.ResourceId) (*v2.Resour
 		team.DisplayName,
 		teamResourceType,
 		team.Name,
-		[]batonResource.GroupTraitOption{
-			batonResource.WithGroupProfile(profile),
-		},
+		[]batonResource.GroupTraitOption{},
+		batonResource.WithResourceProfile(profile),
 		batonResource.WithParentResourceID(parentResourceId),
 	)
 }
