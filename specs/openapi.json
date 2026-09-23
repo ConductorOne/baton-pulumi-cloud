@@ -1,0 +1,328 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Pulumi Cloud API (baton-pulumi-cloud connector surface)",
+    "version": "1.0.0",
+    "description": "Describes only the Pulumi Cloud endpoints baton-pulumi-cloud calls. Scope is derived from pkg/client/client.go; response shapes are derived from the structs in that same file and settled against Pulumi's live OpenAPI document at https://api.pulumi.com/api/openapi/pulumi-spec.json (accessed 2026-09-23).\n\nOnly the properties the connector's structs declare are modelled. Pulumi's document describes many more per resource; the omissions are deliberate — spec scope is connector scope.\n\nAuth: a Pulumi access token sent as `Authorization: token <token>`. Note the scheme keyword is the literal string `token`, not `Bearer`.\n\nPagination: only listOrganizationMembers paginates. It returns an opaque `continuationToken`; the connector replays it as the `continuationToken` query parameter and stops once the field is absent. listTeams and getTeam return complete collections with no pagination.\n\nBase URL: https://api.pulumi.com by default, overridable via the connector's base-URL config. Every path is prefixed `/api` by buildURL."
+  },
+  "servers": [
+    { "url": "https://api.pulumi.com", "description": "Pulumi Cloud API. Default; overridable via the connector's base-url config." }
+  ],
+  "security": [{ "pulumiToken": [] }],
+  "tags": [
+    { "name": "organization", "description": "Organization membership and roles." },
+    { "name": "teams", "description": "Teams and their membership." }
+  ],
+  "paths": {
+    "/api/orgs/{orgName}/members": {
+      "get": {
+        "operationId": "listOrganizationMembers",
+        "tags": ["organization"],
+        "summary": "List the members of an organization",
+        "description": "Source of the connector's user resources (pkg/connector/user.go:71) and of the organization role grants (pkg/connector/org.go:93). Also the connector's credential-validation probe, called with an empty continuation token (pkg/connector/connector.go:44).\n\nThe client hardcodes `type=backend` on every call. This is load-bearing, not boilerplate: Pulumi documents this route as having two distinct modes and defaults to `frontend` when the parameter is omitted. A backend member is the organization's identity-provider-backed membership (GitHub, GitLab, or for SAML orgs the Pulumi database); a frontend member is the Pulumi-database membership counted against the seat cap. Dropping the parameter changes which people the connector syncs.\n\n`user.githubLogin` is the connector's user resource ID and the `userLogin` path parameter for every write — parity-critical.",
+        "externalDocs": { "url": "https://www.pulumi.com/docs/pulumi-cloud/reference/cloud-rest-api/" },
+        "parameters": [
+          { "$ref": "#/components/parameters/OrgName" },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Which member list to return. The connector always sends `backend`. Pulumi defaults to `frontend` when omitted, which would return a different set of people.",
+            "schema": { "type": "string", "enum": ["backend", "frontend"], "default": "frontend" },
+            "example": "backend"
+          },
+          {
+            "name": "continuationToken",
+            "in": "query",
+            "required": false,
+            "description": "Opaque page cursor, echoed back from the previous response's `continuationToken`. Omitted on the first call.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of organization members.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListUsersResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid query parameter." }
+        }
+      }
+    },
+    "/api/orgs/{orgName}/members/{userLogin}": {
+      "patch": {
+        "operationId": "updateOrganizationMemberRole",
+        "tags": ["organization"],
+        "summary": "Change a member's organization role",
+        "description": "Backs both the organization role grant (pkg/connector/org.go:153) and the demotion half of revoke: revoking `admin` sets the role back to `member` rather than removing the person (pkg/connector/org.go:182).\n\nThe connector only ever sends `admin` or `member`. Pulumi accepts a wider enum and also supports a custom-role form via `fgaRoleId`, which the connector does not use.\n\nPulumi returns 204 with no body; the client discards the response.",
+        "externalDocs": { "url": "https://www.pulumi.com/docs/pulumi-cloud/reference/cloud-rest-api/" },
+        "parameters": [
+          { "$ref": "#/components/parameters/OrgName" },
+          { "$ref": "#/components/parameters/UserLogin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateMemberRoleRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Role updated." },
+          "400": { "description": "Invalid role." },
+          "404": { "description": "User not found in the organization." }
+        }
+      },
+      "delete": {
+        "operationId": "removeOrganizationMember",
+        "tags": ["organization"],
+        "summary": "Remove a member from the organization",
+        "description": "Backs revoking the `member` entitlement (pkg/connector/org.go:185). Pulumi also drops the user from every team in the organization as a side effect, so team grants disappear without the connector issuing a team write.\n\nPulumi rejects self-removal with a 400. The client sends no body and decodes no response.",
+        "externalDocs": { "url": "https://www.pulumi.com/docs/pulumi-cloud/reference/cloud-rest-api/" },
+        "parameters": [
+          { "$ref": "#/components/parameters/OrgName" },
+          { "$ref": "#/components/parameters/UserLogin" }
+        ],
+        "responses": {
+          "204": { "description": "Member removed." },
+          "400": { "description": "The caller cannot remove themselves from the organization." },
+          "404": { "description": "User not found in the organization." }
+        }
+      }
+    },
+    "/api/orgs/{orgName}/teams": {
+      "get": {
+        "operationId": "listTeams",
+        "tags": ["teams"],
+        "summary": "List the teams in an organization",
+        "description": "Source of the connector's team resources (pkg/connector/team.go:60). Unpaginated — Pulumi returns the full set in one response, and the connector returns an empty page token.\n\n`name` is the connector's team resource ID and the `teamName` path parameter for getTeam and updateTeam — parity-critical.\n\nThis listing carries a `members` array in Pulumi's schema, but the connector ignores it here and re-fetches each team via getTeam to build membership grants.",
+        "externalDocs": { "url": "https://www.pulumi.com/docs/pulumi-cloud/reference/cloud-rest-api/" },
+        "parameters": [
+          { "$ref": "#/components/parameters/OrgName" }
+        ],
+        "responses": {
+          "200": {
+            "description": "All teams in the organization.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListTeamsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgName}/teams/{teamName}": {
+      "get": {
+        "operationId": "getTeam",
+        "tags": ["teams"],
+        "summary": "Get a team, including its members",
+        "description": "Called once per team to build membership grants (pkg/connector/team.go:96). `members[].githubLogin` is the join key back to the user resource — parity-critical.\n\nPulumi's `members` entries also carry a per-team `role` of `admin` or `member`; the connector's `UserInfo` struct does not declare it, so every team membership is emitted as a flat `member` grant and team admins are indistinguishable from team members.\n\nPulumi returns `listMembersError` when it cannot reach a GitHub- or GitLab-backed team's upstream. The connector does not decode that field, so such a team syncs as having no members rather than surfacing the error.",
+        "externalDocs": { "url": "https://www.pulumi.com/docs/pulumi-cloud/reference/cloud-rest-api/" },
+        "parameters": [
+          { "$ref": "#/components/parameters/OrgName" },
+          { "$ref": "#/components/parameters/TeamName" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The team.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Team" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateTeamMembership",
+        "tags": ["teams"],
+        "summary": "Add or remove a team member",
+        "description": "Backs team membership grant and revoke (pkg/connector/team.go:129 and :146). The connector sends only the `member` and `memberAction` fields.\n\nPulumi's update-team route is multi-purpose — the same body also carries stack and environment permission edits and team renames. The connector uses none of those, and the spec models only the two fields it sends.\n\nPulumi accepts `promote` and `demote` alongside `add` and `remove`; the connector never sends them, which is consistent with it not modelling per-team roles in getTeam.",
+        "externalDocs": { "url": "https://www.pulumi.com/docs/pulumi-cloud/reference/cloud-rest-api/" },
+        "parameters": [
+          { "$ref": "#/components/parameters/OrgName" },
+          { "$ref": "#/components/parameters/TeamName" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTeamMembershipRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Membership updated." },
+          "400": { "description": "Teams are not available to individual organizations." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "pulumiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "A Pulumi access token, sent as `token <access-token>`. The scheme keyword is the literal `token`, not `Bearer`, so this is modelled as an apiKey header rather than an http security scheme."
+      }
+    },
+    "parameters": {
+      "OrgName": {
+        "name": "orgName",
+        "in": "path",
+        "required": true,
+        "description": "Organization name. Fixed for the lifetime of the connector by its organization config field.",
+        "schema": { "type": "string" }
+      },
+      "UserLogin": {
+        "name": "userLogin",
+        "in": "path",
+        "required": true,
+        "description": "The member's login name — `user.githubLogin` from listOrganizationMembers, which is also the connector's user resource ID.",
+        "schema": { "type": "string" }
+      },
+      "TeamName": {
+        "name": "teamName",
+        "in": "path",
+        "required": true,
+        "description": "Team name — `name` from listTeams, which is also the connector's team resource ID.",
+        "schema": { "type": "string" }
+      }
+    },
+    "schemas": {
+      "ListUsersResponse": {
+        "type": "object",
+        "required": ["members"],
+        "properties": {
+          "members": {
+            "type": "array",
+            "description": "The page of organization members.",
+            "items": { "$ref": "#/components/schemas/OrganizationMember" }
+          },
+          "continuationToken": {
+            "type": "string",
+            "description": "Opaque cursor for the next page. Absent on the final page, which is what terminates the connector's loop."
+          }
+        }
+      },
+      "OrganizationMember": {
+        "type": "object",
+        "description": "A member of the organization. Only the properties the connector decodes are listed.",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserInfo",
+            "description": "The member's user record."
+          },
+          "role": {
+            "type": "string",
+            "description": "The member's organization role. Drives the `admin` / `member` entitlement: the connector maps exactly `admin` to the admin entitlement and treats everything else as `member`, so the remaining enum values collapse into `member`.\n\nPulumi marks this property deprecated in favour of `fgaRole`, which is authoritative for organizations using custom roles — for those members `role` is only the closest built-in projection. The connector reads the deprecated field.",
+            "enum": ["none", "member", "admin", "potential-member", "stack-collaborator", "billing-manager"]
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the member joined the organization. Decoded into a plain Go string, not a time."
+          },
+          "knownToPulumi": {
+            "type": "boolean",
+            "description": "Whether the member has a Pulumi account. Decoded but not acted on — the connector marks every user ENABLED regardless."
+          },
+          "virtualAdmin": {
+            "type": "boolean",
+            "description": "Decoded by the connector but absent from Pulumi's published schema. Unproven: neither its presence nor its meaning is documented. Not acted on."
+          }
+        }
+      },
+      "UserInfo": {
+        "type": "object",
+        "description": "Display information for a user. Pulumi also returns `email` here on selected endpoints; the connector does not decode it.",
+        "properties": {
+          "githubLogin": {
+            "type": "string",
+            "description": "Login name. The connector's user resource ID, its user-trait login, and the `userLogin` path parameter for writes — parity-critical."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name. The connector falls back to `githubLogin` when this is empty."
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Avatar image URL. Decoded but unused."
+          }
+        }
+      },
+      "ListTeamsResponse": {
+        "type": "object",
+        "required": ["teams"],
+        "properties": {
+          "teams": {
+            "type": "array",
+            "description": "All teams in the organization.",
+            "items": { "$ref": "#/components/schemas/Team" }
+          }
+        }
+      },
+      "Team": {
+        "type": "object",
+        "description": "A Pulumi team. Only the properties the connector decodes are listed.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique team name within the organization. The connector's team resource ID and the `teamName` path parameter — parity-critical."
+          },
+          "displayName": { "type": "string", "description": "Human-readable name shown in the Pulumi console." },
+          "description": { "type": "string", "description": "Free-form description of the team's purpose." },
+          "kind": {
+            "type": "string",
+            "description": "Where the team's membership is managed. Decoded but not acted on — the connector writes membership the same way regardless, which will not hold for `github` or `scim` teams whose membership lives upstream.",
+            "enum": ["github", "pulumi", "scim"]
+          },
+          "members": {
+            "type": "array",
+            "description": "Team members. Populated on getTeam; the connector ignores the copy returned by listTeams.",
+            "items": { "$ref": "#/components/schemas/UserInfo" }
+          },
+          "userRole": {
+            "type": "string",
+            "description": "The *calling* user's role on this team, not a property of the team itself. Decoded by the connector but unused; reading it as a team attribute would be a mistake.",
+            "enum": ["none", "member", "admin"]
+          }
+        }
+      },
+      "UpdateMemberRoleRequest": {
+        "type": "object",
+        "description": "Body of updateOrganizationMemberRole. The client builds it as a map[string]string with a single key.",
+        "required": ["role"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "The role to assign. The connector sends only `admin` or `member`.",
+            "enum": ["admin", "member"]
+          }
+        }
+      },
+      "UpdateTeamMembershipRequest": {
+        "type": "object",
+        "description": "Body of updateTeamMembership. The client builds it as a map[string]string with exactly these two keys.",
+        "required": ["member", "memberAction"],
+        "properties": {
+          "member": {
+            "type": "string",
+            "description": "Login name of the user to add or remove — the connector's user resource ID."
+          },
+          "memberAction": {
+            "type": "string",
+            "description": "The action to perform. The connector sends only `add` or `remove`; Pulumi also accepts `promote` and `demote`.",
+            "enum": ["add", "remove"]
+          }
+        }
+      }
+    }
+  }
+}
